@@ -53,3 +53,21 @@ for p in interp_pts:
             result += z[val_count] * lagrangeND(p, (x, y), (a, b))
             val_count += 1
     z_interp.append(result)
+    
+    
+total = 0
+for i, (x, y) in enumerate(interp_pts):
+    total += np.abs(f(x, y) - z_interp[i])
+print(total)
+ax = plt.axes(projection='3d')
+
+# Plot known data
+x_data = [a[0] for a in pts]
+y_data = [a[1] for a in pts]
+z_data = [a for a in z]
+ax.scatter3D(x_data, y_data, z_data)
+
+# Plot interpolated data
+x_interp = [a[0] for a in interp_pts]
+y_interp = [a[1] for a in interp_pts]
+ax.scatter3D(x_interp, y_interp, z_interp)
