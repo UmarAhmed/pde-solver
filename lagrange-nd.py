@@ -1,3 +1,5 @@
+import numpy as np
+
 # Standard 1D lagrange polynomial basis for index i
 def lagrange1D(x, arr, i):
     result = 1
@@ -10,10 +12,44 @@ def lagrange1D(x, arr, i):
  
 # Fetch lagrange weighs for a point p with respect to some point (x[i], y[j]) 
 # on the product grid given by the product of x and y
- def lagrange2D(p, ndgrid, indices):
+ def lagrangeND(p, ndgrid, indices):
     result = 1
     n = len(p)
     for i, val in enumerate(p):
         result *= lagrange1D(p[i], ndGrid[i], indices[i])
     return result
-# Test and visualize in 2d
+
+
+'''
+Test and visualize in 2D
+'''
+# We have a grid of points
+x = [i for i in range(-10, 11)]
+y = [i for i in range(-10, 11)]
+pts = []
+for i in x:
+    for j in y:
+        pts.append( (i, j) )
+
+
+# And we know the value of some function f on those points
+def f(x, y):
+    return x * np.sin(y)
+
+z = [f(i, j) for (i, j) in pts]
+
+# We want to know the value at some more points on the plane
+interp_pts = [np.random.uniform(low = -10, high=10, size=(2,)) for _ in range(50)]
+
+# So we will use Lagrange interpolation
+z_interp = []
+
+
+for p in interp_pts:
+    result = 0
+    val_count = 0
+    for a in range(len(x)):
+        for b in range(len(y)):
+            result += z[val_count] * lagrangeND(p, (x, y), (a, b))
+            val_count += 1
+    z_interp.append(result)
