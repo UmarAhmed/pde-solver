@@ -63,13 +63,11 @@ L = []
 G = []
 
 for idx, p in enumerate(all_pts):
-    # Right now we consider p a ghost point if its on the border, but this will change later
+    # We consider p a ghost point if its on the border
     if np.abs(p[0]) > 1.99 or np.abs(p[1]) > 1.99:
         G.append(idx)
     else:
         L.append(idx)
-
-
 
 
 '''
@@ -141,13 +139,11 @@ for p in all_pts:
     # Initialize row that we want to put the weights into
     row = np.zeros( shape = len(all_pts) )
 
-    #P = []
     for i in range(len(x_stencil)):
         for j in range(len(y_stencil)):
             w = lagrange1D(cp_p[0], x_stencil, i) * lagrange1D(cp_p[1], y_stencil, j)
             k = num_nodes * n_y[j] + n_x[i]
             row[k] = w
-            #P.append(all_pts[k])
 
     # The Lagrangian weights should add up to 1
     np.testing.assert_almost_equal(row.sum(), 1)
