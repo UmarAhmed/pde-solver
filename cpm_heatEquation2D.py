@@ -186,4 +186,49 @@ def cpmSolve(u):
 
     return result
 
+'''
+Testing
+    Input: cos(theta)
+    Analytic solution: exp(-t) cos(theta)
+'''
 
+# Test function
+def sample(p):
+    angle = np.arctan2(p[1], p[0])
+    return np.cos(angle)
+
+# Solve the DE
+u = np.array([sample(p) for p in all_pts])
+r = cpmSolve(u)
+
+# Mask for showing band
+ddd = np.zeros(shape = (num_nodes, num_nodes))
+for i in range(num_nodes):
+    for j in range(num_nodes):
+        p = np.array([x_pts[i], y_pts[j]])
+        cp_p = cp(p)
+        if np.linalg.norm(p - cp_p)<= 0.3606:
+            ddd[j][i] = False
+        else:
+            ddd[j][i] = True
+ 
+# This is for printing out images
+for i, a in enumerate(r):
+    if i % 100 == 0:
+        print('Time:', i * DELTA_T)
+        m = a.reshape(len(x_pts), len(y_pts))
+        plt.subplots(figsize=(10,8))
+        sns.heatmap(m, mask = ddd)
+        plt.show()
+
+# Use the following for creating animations
+'''
+fig, a = plt.subplots()
+
+def animate(i):
+    a.cla()
+    grid = r[i].reshape(num_nodes, num_nodes)
+    sns.heatmap(grid, mask = ddd, vmin = -1, vmax = 1, ax = a, cbar = False)
+ani = animation.FuncAnimation(fig, animate, frames = len(r), interval = DELTA_T * 1000)
+ani.save("animation.mp4")
+'''
