@@ -245,6 +245,9 @@ for i in range(num_nodes):
 for i, a in enumerate(r):
     if i % 100 == 0:
         print('Time:', i * DELTA_T)
+        expected = np.array([soln(p, i * DELTA_T) for p in all_pts])
+        diff = abs(expected - r[i])
+        print('Maximum error', diff.max())
         m = a.reshape(len(x_pts), len(y_pts))
         plt.subplots(figsize=(10,8))
         sns.heatmap(m, mask = ddd)
