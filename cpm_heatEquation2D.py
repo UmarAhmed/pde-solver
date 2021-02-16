@@ -137,13 +137,17 @@ for p in all_pts:
     y_stencil = y_pts[n_y]
 
     # Initialize row that we want to put the weights into
-    row = np.zeros( shape = len(all_pts) )
-
+    row = np.zeros( shape = len(L) )
+    
+    # Set the weights using Lagrangian interpolation
     for i in range(len(x_stencil)):
         for j in range(len(y_stencil)):
             w = lagrange1D(cp_p[0], x_stencil, i) * lagrange1D(cp_p[1], y_stencil, j)
             k = num_nodes * n_y[j] + n_x[i]
-            row[k] = w
+            # k is an index in all_pts, we must find out the index in L (we call that L_k)
+            L_k = bisect.bisect_left(L, k)
+            np.testing.assert_almost_equal(k, L[L_k])
+            row[L_k] = w
 
     # The Lagrangian weights should add up to 1
     np.testing.assert_almost_equal(row.sum(), 1)
