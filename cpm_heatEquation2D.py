@@ -164,6 +164,31 @@ actual solver here
 DELTA_T = 0.002
 STOP_TIME = 1
 
+# Construct the implicit CPM matrix
+M = np.identity(laplacian.shape[0]) - DELTA_T * (laplacian @ E)
+
+def implicitSolve(u):
+    result = [u]
+    t = 0
+    while t <= STOP_TIME:
+        # Implicit version: Solve M u' = Eu
+        b = E @ u[L]
+        b = b[L]
+        wnew = np.linalg.solve(M, b)
+        unew = u.copy()
+        for idx, val in enumerate(L):
+            unew[val] = wnew[idx]
+
+        # Record the solution into an array for plotting later
+        result.append(unew)
+        
+        # Updates
+        u = unew
+        t += DELTA_T
+
+    return result
+
+
 # u is the initial distribution over the domain of interest
 def cpmSolve(u):
 
