@@ -3,6 +3,9 @@ import bisect
 import seaborn as sns
 from matplotlib import pyplot as plt
 
+'''
+Uses implicit closest point method to solve the shifted poisson equation on the circle
+'''
 
 # Constants
 testing = False
