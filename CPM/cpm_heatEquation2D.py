@@ -5,6 +5,11 @@ from matplotlib import pyplot as plt
 from matplotlib import animation
 
 '''
+Solves the 2D heat equation on the circle using the implicit closest point method
+'''
+
+
+'''
 Helper functions
 '''
 
