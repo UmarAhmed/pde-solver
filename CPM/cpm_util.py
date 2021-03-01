@@ -1,11 +1,12 @@
 import numpy as np
 import bisect
+from scipy import sparse
 
 '''
 Contains many utility functions used in the Closest Point Method
 '''
 
-# Return closest point to x on the circle
+# Return closest point to x on the circle (p should be np array)
 def cp(p):
     if np.linalg.norm(p) < 0.00001:
         return (1, 0)
@@ -28,13 +29,36 @@ def createBand(pts, dist, dx):
     band = [i for i, p in enumerate(pts) if dist(p) <= threshold]
     return band
 
+# Construct Laplacian using Scipy.sparse to be fast
+
+def sparseLaplacian(band, N, grid_width, dx):
+    '''
+    Creates a sparse Laplacian
+    
+    Input:
+      band = list of indices in the band
+      N = total number of points in the grid
+      grid_width = side-length of the grid (so N = sqrt(grid_width) )
+      dx = distance between nodes in the grid (delta x = delta y)
+    '''
+    coefficients = np.array([-4, 1, 1, 1, 1]) / (dx * dx) 
+    L = sparse.dok_matrix( (len(band), N ) )
+
+    for i, idx in enumerate(band):
+        stencil = [idx, idx - 1, idx + 1, idx - grid_width, idx + grid_width]
+        for j, stencil_idx in enumerate(stencil):
+            L[i, stencil_idx] = coefficients[j]
+
+    # need to trim before returning
+    return (L.tocsr())[:, band]
+
+
 # Construct laplacian matrix of dimension len(band) x len(band)
 # N = total number of points in the grid
 # TODO see how to generalize this for higher order (currently order = 2)
 def createLaplacian(N, grid_width, band, dx = 0.1, order = 2):
     coefficients = np.array([-4, 1, 1, 1, 1]) / (dx * dx) 
     laplacian = np.zeros( shape = (len(band), N) )
-
     for i, idx in enumerate(band):
         stencil = [idx, idx - 1, idx + 1, idx - grid_width, idx + grid_width]
         laplacian[i][stencil] = coefficients
@@ -118,5 +142,3 @@ def stab(L, E):
     L_diag = np.diag(L) * np.identity(L.shape[0])
     M = L_diag + (L - L_diag) @ E
     return M
-
-
