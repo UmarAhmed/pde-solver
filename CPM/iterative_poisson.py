@@ -25,6 +25,8 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
 from cpm_util import *
+from scipy import sparse
+import time
 
 '''
 Construct:
@@ -66,50 +68,64 @@ this tells us how to take the Laplacian of a function in terms of $r$ and $\thet
 '''
 Compute matrices and vectors needed in the Jacobi iteration procedure
 '''
-rhs = np.array([f(all_pts[i]) for i in band])
-laplacian = createLaplacian(N = len(all_pts), grid_width = num_nodes, band = band)
+'''
+Compute matrices and vectors needed in the Jacobi iteration procedure
+'''
 
+# TODO rewrite the interpolation matrix fn to return sparse matrix 
 cp_all_pts = np.array([cp(all_pts[i]) for i in band])
-
 E = createInterpMatrix(x_pts, y_pts, cp_all_pts, band)
+E = sparse.csr_matrix(E)
 
-real = np.array( [solnFn(p) for p in all_pts[band] ] ) # solution we want to see
+A = sparseLaplacian(band, N = len(all_pts), grid_width=num_nodes, dx=DELTA_X)
+b = sparse.csr_matrix([f(all_pts[i]) for i in band]).transpose()
+real = sparse.csr_matrix( [solnFn(p) for p in all_pts[band] ] ).transpose()
 
 
-A = laplacian
-diagInv = np.identity(A.shape[0]) * (1. / np.diag(A))
-woDiag = A - (np.identity(A.shape[0]) * np.diag(A))
+# diagonal inverse
+d = sparse.diags(A.diagonal())
+d = sparse.csr_matrix(d)
+diagInv = sparse.linalg.inv(d)
+woDiag = A - d;
+M = E * diagInv 
 
 '''
 Do Ruuth-Merriman Jacobi Iteration
 '''
 
-# We start with this guess
+# Start with this guess
 def init(p):
     angle = np.arctan2(p[1], p[0])
     if angle < 0:
         angle += np.pi * 2
-    return np.sin(angle)
+    return np.sin(3 * angle)
 
-# start w a random guess in [-1, 1] could also use init() here
-u = np.random.uniform(low = -1, high = 1, size = len(band))
+
+start = time.time()
+
+u = sparse.csr_matrix([init(all_pts[i]) for i in band] ).transpose();
 
 k = 0
 maxSteps = 10000
-error = 1.
-goal = 0.0000001
+delta = 1.
+goal = 0.000001
 
-while k < maxSteps and error > goal:
-    unew = diagInv @ (rhs - woDiag @ u)
-    unew = E @ unew
-    error = np.linalg.norm(unew - u)
-
-    if k % (maxSteps // 10) == 0:
-        print(f"Max Error at step {k}:", abs(unew - real).max())
-
+while k < maxSteps and delta > goal:
+    unew = M * (b - woDiag * u)
+    delta = sparse.linalg.norm(unew - u)
     u = unew
     k += 1
+
+stop = time.time()
+
+
+print('Time:', stop - start)
+print('dx:', DELTA_X)
 print('Steps:', k)
+
+# Account for translation
+u = u.toarray()
+u += (real - u).mean()
 
 # Parameterize over the circle
 theta = np.linspace(0, np.pi * 2, 100)
@@ -127,9 +143,14 @@ plot_pts = np.array([pol2cart(r[i], theta[i]) for i in range(len(theta))])
 # Interpolation for plotting
 Eplot = createInterpMatrix(x_pts, y_pts, plot_pts, band)
 
+
 # Plot our solution and the actual result
 circplot = Eplot @ u
+circplot = np.squeeze(np.asarray(circplot))
 exactplot = np.array([solnFn(p) for p in plot_pts ])
+
+print('Error = ', abs(exactplot - circplot).max() )
+
 
 fig = plt.figure(figsize=(10,5))
 ax = fig.add_subplot(111)
