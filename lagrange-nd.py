@@ -15,8 +15,8 @@ def lagrange1D(x, arr, i):
  def lagrangeND(p, ndgrid, indices):
     result = 1
     n = len(p)
-    for i, val in enumerate(p):
-        result *= lagrange1D(p[i], ndGrid[i], indices[i])
+    for i, p_i in enumerate(p):
+        result *= lagrange1D(p_i, ndGrid[i], indices[i])
     return result
 
 
