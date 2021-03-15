@@ -38,33 +38,28 @@ sp_mat createLaplacian(int dim, double dx = 0.1) {
 }
 
 /*
- * Return k closest items to val in arr
+ * Find k closest items to val in arr
  * Assumes that arr is uniform; ie arr[i] = arr[i] + i * (arr[1] - arr[0]) 
- * returns index of first element in the list of k
+ * Returns index of first element in the list of k, so the k closest are
+ * arr[left], arr[left + 1], ... , arr[left + k - 1]
 */
 
 int kClosest(const std::vector<double> arr, const double val, const int k = 4) {
-    //std::vector<int> result (k);
     // Find value to the left and right of val
     int left = (val - arr[0]) / (arr[1] - arr[0]);
     int right = left + 1;
 
     for (int count = 0; count < k; count++) {
         if (left < 0) {
-            //result[count] = right;
             right++;
         } else if (right >= arr.size()) {
-            //result[count] = left;
             left--;
         } else if (val - arr[left] <= arr[right] - val) {
-            //result[count] = left;
             left--;
         } else {
-            //result[count] = right;
             right++;
         }
     }
-    //return result;
     return left;
 }
 
@@ -81,6 +76,8 @@ double lagrange1D(const double x, const std::vector<double> arr, const int i) {
     return result;
 }
 
+// Creates interpolation matrix using Lagrangian Interpolation
+// TODO: add assert to check row sum is 1 (?)
 sp_mat createInterpMatrix(const std::vector<double> x_pts, const std::vector<double> y_pts, const std::vector<vec> pts, const std::vector<int> band) {
     sp_mat E (pts.size(), band.size());
 
@@ -105,6 +102,9 @@ sp_mat createInterpMatrix(const std::vector<double> x_pts, const std::vector<dou
             for (int j = 0; j < K; j++) {
                 const double w = lagrange1D(p(0), x_stencil, i) * lagrange1D(p(1), y_stencil, j);
                 const int pts_idx = K * (y_start + j) + (x_start + i);
+                // pts_idx is the index in pts, but we want index in band
+                // note an alternative to this is to start with a length of N 
+                // and use slicing at the end to get length of band.size() 
                 auto it = std::lower_bound(band.begin(), band.end(), pts_idx);
                 int band_k = it - band.begin();
                 E(k, band_k) = w;
