@@ -11,27 +11,29 @@ using namespace arma;
  * Creates dim x dim tridiagonal matrix representing
  * the Laplacian Beltrami operator
 */
-sp_mat createLaplacian(int dim, double dx = 0.1) {
-    sp_mat laplacian(dim, dim);
 
+sp_mat createLaplacian(const std::vector<int>& band, const int N, const int grid_width, const double dx) {
     const double diag = -4 / (dx * dx);
     const double off = 1 / (dx * dx);
 
-    // First row
-    laplacian(0, 0) = diag;
-    laplacian(0, 1) = off;
+    sp_mat lap (band.size(), N);
 
-    // Rows 1 through dim - 1
-    for (int i = 1; i < dim - 1; i++) {
-        laplacian(i, i - 1) = off;
-        laplacian(i, i) = diag;
-        laplacian(i, i + 1) = off;
+    for (int i = 0; i < band.size(); i++) {
+        const int idx = band[i];
+        lap(i, idx) = diag;
+        lap(i, idx - 1) = lap(i, idx + 1) = off;
+        lap(i, idx - grid_width) = lap(i, idx + grid_width) = off;
     }
 
-    // Last row
-    laplacian(dim - 1, dim - 2) = off;
-    laplacian(dim - 1, dim - 1) = diag;
-    return laplacian;
+    // Do the trimming
+    sp_mat trim_lap (band.size(), band.size());
+
+    for (int i = 0; i < band.size(); i++) {
+        const int idx = band[i];
+        trim_lap.col(i) = lap.col(idx);
+    }
+
+    return trim_lap;
 }
 
 
@@ -41,7 +43,7 @@ sp_mat createLaplacian(int dim, double dx = 0.1) {
  * Returns index of first element in the list of k, so the k closest are
  * arr[left], arr[left + 1], ... , arr[left + k - 1]
 */
-int kClosest(const std::vector<double> arr, const double val, const int k = 4) {
+int kClosest(const std::vector<double>& arr, const double val, const int k = 4) {
     // Find value to the left and right of val
     int left = (val - arr[0]) / (arr[1] - arr[0]);
     int right = left + 1;
@@ -62,7 +64,7 @@ int kClosest(const std::vector<double> arr, const double val, const int k = 4) {
 
 
 // Lagrange weight
-double lagrange1D(const double x, const std::vector<double> arr, const int i) {
+double lagrange1D(const double x, const std::vector<double>& arr, const int i) {
     double result = 1;
     for (int j = 0; j < arr.size(); j++) {
         if (i == j) {
@@ -75,6 +77,7 @@ double lagrange1D(const double x, const std::vector<double> arr, const int i) {
 
 
 // Utility printer for debugging
+// TODO remove this when converting to library?
 template <typename T>
 void print(const T x) {
     std::cout << x << std::endl;
@@ -82,8 +85,8 @@ void print(const T x) {
 
 
 // Create interpolation matrix
-// TODO add assert for
-sp_mat createInterpMatrix(const std::vector<double> x_pts, const std::vector<double> y_pts, const std::vector<vec> pts, const std::vector<int> band) {
+// TODO add assert for row sum
+sp_mat createInterpMatrix(const std::vector<double>& x_pts, const std::vector<double>& y_pts, const std::vector<vec>& pts, const std::vector<int>& band) {
     sp_mat E(pts.size(), band.size());
 
     for (int k = 0; k < pts.size(); k++) {
@@ -108,11 +111,11 @@ sp_mat createInterpMatrix(const std::vector<double> x_pts, const std::vector<dou
                 const double w = lagrange1D(p(0), x_stencil, i) * lagrange1D(p(1), y_stencil, j);
                 const int pts_idx = x_pts.size() * (y_start + j) + (x_start + i);
                 const auto it = std::lower_bound(band.begin(), band.end(), pts_idx);
-                int band_k = it - band.begin();
+                const int band_k = it - band.begin();
                 E(k, band_k) = w;
             }
         }
-        auto f = sum(E.row(k));
+        const auto f = sum(E.row(k));
         if ( f > 1.01 || f < 0.99) {
             throw "sum of row in interpolation matrix is not 1";
         }
@@ -121,7 +124,49 @@ sp_mat createInterpMatrix(const std::vector<double> x_pts, const std::vector<dou
 }
 
 
+// Uses Jacobi iteration to find solution
+vec jacobiSolve(const sp_mat& E, const sp_mat& L, const vec& b, vec u) {
+    // Manually take the inverse of diag(L) as there is no inv(sp_mat)
+    sp_mat diagInv (L.n_rows, L.n_cols);
+    for (int i = 0; i < L.n_rows; i++) {
+        diagInv(i, i) = 1 / L(i, i);
+    }
+
+    const sp_mat M = E * diagInv;
+    const sp_mat woDiag = L - diagmat(L);
+
+    // Begin Jacobi Iteration
+    constexpr double goal = 0.00000000001;
+    double delta = 1;
+    int k = 0;
+    int maxSteps = 10000;
+
+    while (k < maxSteps && delta > goal) {
+        auto unew = M * (b - woDiag * u);
+        delta = norm(unew - u);
+        u = unew;
+        k++;
+    }
+
+    return u;
+}
+
+// TODO init and f functions are temporary below - remove later
+double init(const double x, const double y) {
+    const double angle = atan2(y, x);
+    return sin(angle);
+}
+
+double f(const double x, const double y) {
+    double angle = atan2(y, x);
+    return -sin(angle) - 144 * sin(12 * angle);
+}
+
+
 int main() {
+    wall_clock timer;
+    timer.tic();
+
     // Create grid
     constexpr double dx = 0.1;
     std::vector<double> x_pts;
@@ -133,7 +178,6 @@ int main() {
         t += dx;
     }
 
-
     // Compute closest point
     std::vector<vec> cp_pts;
     std::vector<int> band;
@@ -141,7 +185,7 @@ int main() {
     int count = 0;
     for (int i = 0; i < x_pts.size(); i++) {
         for (int j = 0; j < y_pts.size(); j++) {
-            vec p = {x_pts[i], y_pts[j] };
+            vec p = {x_pts[j], y_pts[i] };
             vec cp_p = p;
 
             if (x_pts[i] != 0 || y_pts[j] != 0) {
@@ -159,7 +203,26 @@ int main() {
         }
     }
 
-    sp_mat laplacian = createLaplacian(band.size(), dx);
+    sp_mat laplacian = createLaplacian(band, x_pts.size() * y_pts.size(), x_pts.size(), dx);
     sp_mat E = createInterpMatrix(x_pts, y_pts, cp_pts, band);
+
+    // Compute right hand side and initial guess u_0 based on
+    // u(theta) = sin(theta) + sin(12 theta)
+    // f = - sin(theta) - 144 sin(12 theta)
+    vec b (band.size());
+    vec u_0 (band.size());
+    for (int idx = 0; idx < band.size(); idx++) {
+        int j = band[idx] / x_pts.size();
+        int i = band[idx] % x_pts.size();
+
+        b(idx) = f(x_pts[i], y_pts[j]);
+        u_0(idx) = init(x_pts[i], y_pts[j]);
+    }
+
+
+    // Solve
+    auto result = jacobiSolve(E, laplacian, b, u_0);
+    auto s = timer.toc();
+    std::cout << "Time: " << s << std::endl;
 }
 
