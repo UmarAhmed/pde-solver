@@ -139,7 +139,7 @@ vec jacobiSolve(const sp_mat& E, const sp_mat& L, const vec& b, vec u) {
     constexpr double goal = 0.00000000001;
     double delta = 1;
     int k = 0;
-    int maxSteps = 10000;
+    constexpr int maxSteps = 10000;
 
     while (k < maxSteps && delta > goal) {
         auto unew = M * (b - woDiag * u);
@@ -158,7 +158,7 @@ double init(const double x, const double y) {
 }
 
 double f(const double x, const double y) {
-    double angle = atan2(y, x);
+    const double angle = atan2(y, x);
     return -sin(angle) - 144 * sin(12 * angle);
 }
 
