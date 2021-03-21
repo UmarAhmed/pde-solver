@@ -142,7 +142,7 @@ vec jacobiSolve(const sp_mat& E, const sp_mat& L, const vec& b, vec u) {
     constexpr int maxSteps = 10000;
 
     while (k < maxSteps && delta > goal) {
-        auto unew = M * (b - woDiag * u);
+        const vec unew = M * (b - woDiag * u);
         delta = norm(unew - u);
         u = unew;
         k++;
